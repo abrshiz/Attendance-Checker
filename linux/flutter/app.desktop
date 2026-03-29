@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Attendance Checker
+Comment=QR Code Attendance Management System
+Exec=qr_app
+Icon=qr_app
+Terminal=false
+Categories=Education;Office;
