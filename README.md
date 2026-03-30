@@ -1,4 +1,4 @@
-# qr
+# Attendance Checker Mobile App by using Flutter
 
 A new Flutter project.
 
