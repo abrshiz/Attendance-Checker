@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:qr_app/screens/teacher_dashboard.dart';
 import 'package:qr_app/screens/student_dashboard.dart';
 import 'package:qr_app/database/simple_storage.dart';
-import 'package:qr_app/models/student_model.dart'; // Add this import
+import 'package:qr_app/models/student_model.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,14 +28,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _createDemoData() async {
     final students = await _storage.getStudentsByClass('all');
     if (students.isEmpty) {
-      // Create demo student with login credentials
       final demoStudent = StudentModel(
         id: 'student_001',
         studentId: 'STU2024001',
         name: 'John Doe',
         email: 'john@example.com',
         phone: '+1234567890',
-        classId: 'class_001', // Add classId
+        classId: 'class_001',
         enrolledDate: DateTime.now(),
         isActive: true,
         username: 'john_doe',
@@ -56,15 +55,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       if (_selectedRole == 'teacher') {
-        // Teacher login
         if (_storage.authenticateTeacher(
             _usernameController.text, _passwordController.text)) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (context) => TeacherDashboard(
-                teacherId: 'teacher_001', // Add teacherId
-                teacherName: 'Teacher', // Add teacherName
+                // Remove 'const'
+                teacherId: 'teacher_001',
+                teacherName: 'Teacher',
               ),
             ),
           );
@@ -72,7 +71,6 @@ class _LoginScreenState extends State<LoginScreen> {
           _showMessage("Invalid teacher credentials", Colors.red);
         }
       } else {
-        // Student login
         final student = await _storage.authenticateStudent(
           _usernameController.text,
           _passwordController.text,
@@ -83,6 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
             context,
             MaterialPageRoute(
               builder: (context) => StudentDashboard(
+                // Remove 'const'
                 studentId: student.studentId,
                 studentName: student.name,
                 studentObject: student,
@@ -157,8 +156,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
                     const SizedBox(height: 32),
-
-                    // Role Selection
                     SegmentedButton<String>(
                       segments: const [
                         ButtonSegment(
@@ -180,8 +177,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     ),
                     const SizedBox(height: 24),
-
-                    // Username Field
                     TextField(
                       controller: _usernameController,
                       decoration: InputDecoration(
@@ -197,8 +192,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    // Password Field
                     TextField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -226,8 +219,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-
-                    // Login Button
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -257,8 +248,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    // Demo credentials hint
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(

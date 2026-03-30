@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../database/simple_storage.dart';
 import '../models/attendance_model.dart';
 import '../models/student_model.dart';
+import 'login_screen.dart';
 
 class StudentDashboard extends StatefulWidget {
   final String studentId;
@@ -53,6 +54,36 @@ class _StudentDashboardState extends State<StudentDashboard> {
     });
   }
 
+  void _logout() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Logout"),
+        content: const Text("Are you sure you want to logout?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text("Logout"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -74,6 +105,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 ),
               );
             },
+            tooltip: "Attendance History",
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: "Logout",
           ),
         ],
       ),
@@ -409,6 +446,42 @@ class AttendanceHistoryScreen extends StatelessWidget {
         centerTitle: true,
         backgroundColor: Colors.green.shade700,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text("Logout"),
+                  content: const Text("Are you sure you want to logout?"),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Cancel"),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const LoginScreen()),
+                          (route) => false,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text("Logout"),
+                    ),
+                  ],
+                ),
+              );
+            },
+            tooltip: "Logout",
+          ),
+        ],
       ),
       body: attendanceHistory.isEmpty
           ? const Center(child: Text("No attendance records found"))

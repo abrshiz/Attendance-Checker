@@ -14,10 +14,10 @@ import '../models/student_model.dart';
 import '../database/simple_storage.dart';
 
 // Screens
-import 'qr_generator_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'attendance_list_screen.dart';
 import 'student_profile_screen.dart';
+import 'login_screen.dart';
 
 class TeacherDashboard extends StatefulWidget {
   final String? teacherId;
@@ -41,15 +41,14 @@ class _TeacherDashboardState extends State<TeacherDashboard>
   final SimpleStorage _storage = SimpleStorage();
   bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
-  
-  // For demo, using a fixed class ID
+
   final String _classId = "class_001";
   final String _className = "Grade 10 - Mathematics";
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _loadData();
   }
 
@@ -57,17 +56,18 @@ class _TeacherDashboardState extends State<TeacherDashboard>
     setState(() => _isLoading = true);
 
     try {
-      // Load students for this class
       final students = await _storage.getStudentsByClass(_classId);
-      _students = students.map((s) => Student(
-            id: s.id,
-            name: s.name,
-            timestamp: DateTime.now(),
-            status: AttendanceStatus.absent,
-          )).toList();
+      _students = students
+          .map((s) => Student(
+                id: s.id,
+                name: s.name,
+                timestamp: DateTime.now(),
+                status: AttendanceStatus.absent,
+              ))
+          .toList();
 
-      // Load attendance for today
-      _attendanceList = await _storage.getAttendanceByClassAndDate(_classId, _selectedDate);
+      _attendanceList =
+          await _storage.getAttendanceByClassAndDate(_classId, _selectedDate);
     } catch (e) {
       _showMessage("Error loading data: $e", Colors.red);
     } finally {
@@ -77,7 +77,8 @@ class _TeacherDashboardState extends State<TeacherDashboard>
 
   Future<void> _markAttendance(Student student, AttendanceStatus status) async {
     try {
-      final existing = await _storage.getAttendanceByStudentAndDate(student.id, _selectedDate);
+      final existing = await _storage.getAttendanceByStudentAndDate(
+          student.id, _selectedDate);
 
       final attendance = AttendanceModel(
         id: existing?.id ?? const Uuid().v4(),
@@ -92,7 +93,8 @@ class _TeacherDashboardState extends State<TeacherDashboard>
       await _storage.insertAttendance(attendance);
       await _loadData();
 
-      _showMessage("${student.name} marked as ${_getStatusText(status)}", _getStatusColor(status));
+      _showMessage("${student.name} marked as ${_getStatusText(status)}",
+          _getStatusColor(status));
     } catch (e) {
       _showMessage("Error marking attendance: $e", Colors.red);
     }
@@ -162,23 +164,59 @@ class _TeacherDashboardState extends State<TeacherDashboard>
     for (var attendance in _attendanceList) {
       final student = _students.firstWhere(
         (s) => s.id == attendance.studentId,
-        orElse: () => Student(id: '', name: 'Unknown', timestamp: DateTime.now(), status: AttendanceStatus.absent),
+        orElse: () => Student(
+            id: '',
+            name: 'Unknown',
+            timestamp: DateTime.now(),
+            status: AttendanceStatus.absent),
       );
-      
+
       csvData.writeln(
         "${student.id},${student.name},${attendance.statusText},${attendance.checkInTime != null ? DateFormat('hh:mm a').format(attendance.checkInTime!) : '-'}",
       );
     }
 
     final bytes = Uint8List.fromList(utf8.encode(csvData.toString()));
-    final fileName = "attendance_${DateFormat('yyyy-MM-dd').format(_selectedDate)}.csv";
+    final fileName =
+        "attendance_${DateFormat('yyyy-MM-dd').format(_selectedDate)}.csv";
 
     await Share.shareXFiles(
       [XFile.fromData(bytes, name: fileName, mimeType: 'text/csv')],
-      text: "Attendance Report for $_className\nDate: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}",
+      text:
+          "Attendance Report for $_className\nDate: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}",
     );
-    
+
     _showMessage("Attendance exported successfully", Colors.green);
+  }
+
+  void _logout() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Logout"),
+        content: const Text("Are you sure you want to logout?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text("Logout"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -206,14 +244,18 @@ class _TeacherDashboardState extends State<TeacherDashboard>
             onPressed: _exportAttendance,
             tooltip: "Export Attendance",
           ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: "Logout",
+          ),
         ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
           tabs: const [
-            Tab(icon: Icon(Icons.qr_code), text: "Generate"),
-            Tab(icon: Icon(Icons.qr_code_scanner), text: "Scan"),
-            Tab(icon: Icon(Icons.list), text: "List"),
+            Tab(icon: Icon(Icons.qr_code_scanner), text: "Scan QR"),
+            Tab(icon: Icon(Icons.list), text: "Attendance List"),
           ],
         ),
       ),
@@ -222,30 +264,27 @@ class _TeacherDashboardState extends State<TeacherDashboard>
           : TabBarView(
               controller: _tabController,
               children: [
-                QRGeneratorScreen(
-                  classId: _classId,
-                  onStudentGenerated: (student) async {
-                    await _markAttendance(student, AttendanceStatus.present);
-                    _tabController.animateTo(2);
-                    _showMessage("${student.name} marked present!", Colors.green);
-                  },
-                ),
                 QRScannerScreen(
                   classId: _classId,
                   onStudentScanned: (student) async {
                     await _markAttendance(student, AttendanceStatus.present);
-                    _tabController.animateTo(2);
-                    _showMessage("${student.name} marked present!", Colors.green);
+                    _tabController.animateTo(1);
+                    _showMessage(
+                        "✅ ${student.name} marked PRESENT!", Colors.green);
                   },
                 ),
                 AttendanceListScreen(
                   students: _students,
                   attendanceList: _attendanceList,
                   selectedDate: _selectedDate,
-                  onMarkPresent: (student) => _markAttendance(student, AttendanceStatus.present),
-                  onMarkLate: (student) => _markAttendance(student, AttendanceStatus.late),
-                  onMarkAbsent: (student) => _markAttendance(student, AttendanceStatus.absent),
-                  onMarkExcused: (student) => _markAttendance(student, AttendanceStatus.excused),
+                  onMarkPresent: (student) =>
+                      _markAttendance(student, AttendanceStatus.present),
+                  onMarkLate: (student) =>
+                      _markAttendance(student, AttendanceStatus.late),
+                  onMarkAbsent: (student) =>
+                      _markAttendance(student, AttendanceStatus.absent),
+                  onMarkExcused: (student) =>
+                      _markAttendance(student, AttendanceStatus.excused),
                   onViewProfile: (student) {
                     Navigator.push(
                       context,
@@ -354,17 +393,20 @@ class _TeacherDashboardState extends State<TeacherDashboard>
           ),
           ElevatedButton(
             onPressed: () async {
-              if (idController.text.isNotEmpty && 
+              if (idController.text.isNotEmpty &&
                   nameController.text.isNotEmpty &&
                   usernameController.text.isNotEmpty &&
                   passwordController.text.isNotEmpty) {
-                
                 final newStudent = StudentModel(
                   id: const Uuid().v4(),
                   studentId: idController.text,
                   name: nameController.text,
-                  email: emailController.text.isNotEmpty ? emailController.text : null,
-                  phone: phoneController.text.isNotEmpty ? phoneController.text : null,
+                  email: emailController.text.isNotEmpty
+                      ? emailController.text
+                      : null,
+                  phone: phoneController.text.isNotEmpty
+                      ? phoneController.text
+                      : null,
                   classId: _classId,
                   enrolledDate: DateTime.now(),
                   isActive: true,
@@ -375,7 +417,8 @@ class _TeacherDashboardState extends State<TeacherDashboard>
                 await _storage.insertStudent(newStudent);
                 await _loadData();
                 Navigator.pop(context);
-                _showMessage("Student added with login credentials", Colors.green);
+                _showMessage(
+                    "Student added with login credentials", Colors.green);
               } else {
                 _showMessage("Please fill all required fields", Colors.orange);
               }
