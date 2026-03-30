@@ -11,7 +11,7 @@ import '../models/attendance_model.dart';
 import '../models/student_model.dart';
 
 // Database
-import '../database/database_helper.dart';
+import '../database/simple_storage.dart';
 
 // Screens
 import 'qr_generator_screen.dart';
@@ -20,13 +20,13 @@ import 'attendance_list_screen.dart';
 import 'student_profile_screen.dart';
 
 class TeacherDashboard extends StatefulWidget {
-  final String classId;
-  final String className;
+  final String? teacherId;
+  final String? teacherName;
 
   const TeacherDashboard({
     super.key,
-    required this.classId,
-    required this.className,
+    this.teacherId,
+    this.teacherName,
   });
 
   @override
@@ -38,9 +38,13 @@ class _TeacherDashboardState extends State<TeacherDashboard>
   late TabController _tabController;
   List<Student> _students = [];
   List<AttendanceModel> _attendanceList = [];
-  final DatabaseHelper _db = DatabaseHelper();
+  final SimpleStorage _storage = SimpleStorage();
   bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
+  
+  // For demo, using a fixed class ID
+  final String _classId = "class_001";
+  final String _className = "Grade 10 - Mathematics";
 
   @override
   void initState() {
@@ -54,19 +58,16 @@ class _TeacherDashboardState extends State<TeacherDashboard>
 
     try {
       // Load students for this class
-      final students = await _db.getStudentsByClass(widget.classId);
-      _students = students
-          .map((s) => Student(
-                id: s.id,
-                name: s.name,
-                timestamp: DateTime.now(),
-                status: AttendanceStatus.absent,
-              ))
-          .toList();
+      final students = await _storage.getStudentsByClass(_classId);
+      _students = students.map((s) => Student(
+            id: s.id,
+            name: s.name,
+            timestamp: DateTime.now(),
+            status: AttendanceStatus.absent,
+          )).toList();
 
       // Load attendance for today
-      _attendanceList =
-          await _db.getAttendanceByClassAndDate(widget.classId, _selectedDate);
+      _attendanceList = await _storage.getAttendanceByClassAndDate(_classId, _selectedDate);
     } catch (e) {
       _showMessage("Error loading data: $e", Colors.red);
     } finally {
@@ -76,24 +77,22 @@ class _TeacherDashboardState extends State<TeacherDashboard>
 
   Future<void> _markAttendance(Student student, AttendanceStatus status) async {
     try {
-      final existing =
-          await _db.getAttendanceByStudentAndDate(student.id, _selectedDate);
+      final existing = await _storage.getAttendanceByStudentAndDate(student.id, _selectedDate);
 
       final attendance = AttendanceModel(
         id: existing?.id ?? const Uuid().v4(),
         studentId: student.id,
-        classId: widget.classId,
+        classId: _classId,
         date: _selectedDate,
         status: status,
         checkInTime: status == AttendanceStatus.present ? DateTime.now() : null,
         remarks: status == AttendanceStatus.late ? "Marked late" : null,
       );
 
-      await _db.insertAttendance(attendance);
+      await _storage.insertAttendance(attendance);
       await _loadData();
 
-      _showMessage("${student.name} marked as ${_getStatusText(status)}",
-          _getStatusColor(status));
+      _showMessage("${student.name} marked as ${_getStatusText(status)}", _getStatusColor(status));
     } catch (e) {
       _showMessage("Error marking attendance: $e", Colors.red);
     }
@@ -163,28 +162,22 @@ class _TeacherDashboardState extends State<TeacherDashboard>
     for (var attendance in _attendanceList) {
       final student = _students.firstWhere(
         (s) => s.id == attendance.studentId,
-        orElse: () => Student(
-            id: '',
-            name: 'Unknown',
-            timestamp: DateTime.now(),
-            status: AttendanceStatus.absent),
+        orElse: () => Student(id: '', name: 'Unknown', timestamp: DateTime.now(), status: AttendanceStatus.absent),
       );
-
+      
       csvData.writeln(
         "${student.id},${student.name},${attendance.statusText},${attendance.checkInTime != null ? DateFormat('hh:mm a').format(attendance.checkInTime!) : '-'}",
       );
     }
 
     final bytes = Uint8List.fromList(utf8.encode(csvData.toString()));
-    final fileName =
-        "attendance_${DateFormat('yyyy-MM-dd').format(_selectedDate)}.csv";
+    final fileName = "attendance_${DateFormat('yyyy-MM-dd').format(_selectedDate)}.csv";
 
     await Share.shareXFiles(
       [XFile.fromData(bytes, name: fileName, mimeType: 'text/csv')],
-      text:
-          "Attendance Report for ${widget.className}\nDate: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}",
+      text: "Attendance Report for $_className\nDate: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}",
     );
-
+    
     _showMessage("Attendance exported successfully", Colors.green);
   }
 
@@ -195,7 +188,7 @@ class _TeacherDashboardState extends State<TeacherDashboard>
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.className),
+            Text(_className),
             Text(
               DateFormat('dd MMM yyyy').format(_selectedDate),
               style: const TextStyle(fontSize: 12),
@@ -230,42 +223,36 @@ class _TeacherDashboardState extends State<TeacherDashboard>
               controller: _tabController,
               children: [
                 QRGeneratorScreen(
-                  classId: widget.classId,
+                  classId: _classId,
                   onStudentGenerated: (student) async {
                     await _markAttendance(student, AttendanceStatus.present);
                     _tabController.animateTo(2);
-                    _showMessage(
-                        "${student.name} marked present!", Colors.green);
+                    _showMessage("${student.name} marked present!", Colors.green);
                   },
                 ),
                 QRScannerScreen(
-                  classId: widget.classId,
+                  classId: _classId,
                   onStudentScanned: (student) async {
                     await _markAttendance(student, AttendanceStatus.present);
                     _tabController.animateTo(2);
-                    _showMessage(
-                        "${student.name} marked present!", Colors.green);
+                    _showMessage("${student.name} marked present!", Colors.green);
                   },
                 ),
                 AttendanceListScreen(
                   students: _students,
                   attendanceList: _attendanceList,
                   selectedDate: _selectedDate,
-                  onMarkPresent: (student) =>
-                      _markAttendance(student, AttendanceStatus.present),
-                  onMarkLate: (student) =>
-                      _markAttendance(student, AttendanceStatus.late),
-                  onMarkAbsent: (student) =>
-                      _markAttendance(student, AttendanceStatus.absent),
-                  onMarkExcused: (student) =>
-                      _markAttendance(student, AttendanceStatus.excused),
+                  onMarkPresent: (student) => _markAttendance(student, AttendanceStatus.present),
+                  onMarkLate: (student) => _markAttendance(student, AttendanceStatus.late),
+                  onMarkAbsent: (student) => _markAttendance(student, AttendanceStatus.absent),
+                  onMarkExcused: (student) => _markAttendance(student, AttendanceStatus.excused),
                   onViewProfile: (student) {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => StudentProfileScreen(
                           studentId: student.id,
-                          classId: widget.classId,
+                          classId: _classId,
                         ),
                       ),
                     );
@@ -286,6 +273,8 @@ class _TeacherDashboardState extends State<TeacherDashboard>
     final nameController = TextEditingController();
     final emailController = TextEditingController();
     final phoneController = TextEditingController();
+    final usernameController = TextEditingController();
+    final passwordController = TextEditingController();
 
     showDialog(
       context: context,
@@ -301,6 +290,7 @@ class _TeacherDashboardState extends State<TeacherDashboard>
                   labelText: "Student ID *",
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.badge),
+                  hintText: "e.g., STU2024001",
                 ),
               ),
               const SizedBox(height: 12),
@@ -310,6 +300,7 @@ class _TeacherDashboardState extends State<TeacherDashboard>
                   labelText: "Full Name *",
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person),
+                  hintText: "e.g., John Doe",
                 ),
               ),
               const SizedBox(height: 12),
@@ -332,6 +323,27 @@ class _TeacherDashboardState extends State<TeacherDashboard>
                 ),
                 keyboardType: TextInputType.phone,
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: usernameController,
+                decoration: const InputDecoration(
+                  labelText: "Username for Login *",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person),
+                  hintText: "e.g., john_doe",
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passwordController,
+                decoration: const InputDecoration(
+                  labelText: "Password for Login *",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock),
+                  hintText: "e.g., password123",
+                ),
+                obscureText: true,
+              ),
             ],
           ),
         ),
@@ -342,27 +354,28 @@ class _TeacherDashboardState extends State<TeacherDashboard>
           ),
           ElevatedButton(
             onPressed: () async {
-              if (idController.text.isNotEmpty &&
-                  nameController.text.isNotEmpty) {
+              if (idController.text.isNotEmpty && 
+                  nameController.text.isNotEmpty &&
+                  usernameController.text.isNotEmpty &&
+                  passwordController.text.isNotEmpty) {
+                
                 final newStudent = StudentModel(
                   id: const Uuid().v4(),
                   studentId: idController.text,
                   name: nameController.text,
-                  email: emailController.text.isNotEmpty
-                      ? emailController.text
-                      : null,
-                  phone: phoneController.text.isNotEmpty
-                      ? phoneController.text
-                      : null,
-                  classId: widget.classId,
+                  email: emailController.text.isNotEmpty ? emailController.text : null,
+                  phone: phoneController.text.isNotEmpty ? phoneController.text : null,
+                  classId: _classId,
                   enrolledDate: DateTime.now(),
                   isActive: true,
+                  username: usernameController.text,
+                  password: passwordController.text,
                 );
 
-                await _db.insertStudent(newStudent);
+                await _storage.insertStudent(newStudent);
                 await _loadData();
                 Navigator.pop(context);
-                _showMessage("Student added successfully", Colors.green);
+                _showMessage("Student added with login credentials", Colors.green);
               } else {
                 _showMessage("Please fill all required fields", Colors.orange);
               }

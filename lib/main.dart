@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
-import 'database/database_helper.dart';
-import 'screens/class_management_screen.dart';
+import 'package:qr_app/screens/login_screen.dart';
 
 void main() async {
-  // Initialize database for desktop
   WidgetsFlutterBinding.ensureInitialized();
-  DatabaseHelper.init(); // Initialize FFI for desktop
-
   runApp(const MyApp());
 }
 
@@ -23,7 +19,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         brightness: Brightness.light,
       ),
-      home: const ClassManagementScreen(),
+      home: const LoginScreen(),
     );
   }
 }

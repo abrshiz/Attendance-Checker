@@ -11,6 +11,10 @@ class StudentModel {
   final DateTime enrolledDate;
   final bool isActive;
 
+  // Add login credentials
+  final String? username;
+  final String? password;
+
   StudentModel({
     required this.id,
     required this.studentId,
@@ -21,6 +25,8 @@ class StudentModel {
     required this.classId,
     required this.enrolledDate,
     this.isActive = true,
+    this.username,
+    this.password,
   });
 
   Map<String, dynamic> toMap() {
@@ -34,6 +40,8 @@ class StudentModel {
       'classId': classId,
       'enrolledDate': enrolledDate.toIso8601String(),
       'isActive': isActive ? 1 : 0,
+      'username': username,
+      'password': password,
     };
   }
 
@@ -48,6 +56,8 @@ class StudentModel {
       classId: map['classId'],
       enrolledDate: DateTime.parse(map['enrolledDate']),
       isActive: map['isActive'] == 1,
+      username: map['username'],
+      password: map['password'],
     );
   }
 
