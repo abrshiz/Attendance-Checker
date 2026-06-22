@@ -13,7 +13,6 @@ class StatCard extends StatelessWidget {
     required this.color,
     required this.icon,
   });
-
   @override
   Widget build(BuildContext context) {
     return Container(
