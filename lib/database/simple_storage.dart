@@ -10,8 +10,6 @@ class SimpleStorage {
   List<ClassModel> _classes = [];
   List<StudentModel> _students = [];
   List<AttendanceModel> _attendance = [];
-
-  // Class methods
   Future<void> insertClass(ClassModel classModel) async {
     _classes.add(classModel);
     print('Class added: ${classModel.name}');
